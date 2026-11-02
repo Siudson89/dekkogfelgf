@@ -4882,11 +4882,11 @@ freeMove=function(dt){
     const fa=(cam.mode==='back'&&(fwd<=0||str))?-Math.atan2(-fx,-fz):-Math.atan2(-mx,-mz);player.fa=fa;
     const ddx=-Math.sin(-fa),ddz=-Math.cos(-fa);player.dir=Math.abs(ddx)>Math.abs(ddz)?(ddx>0?'right':'left'):(ddz>0?'down':'up');
     if(player.emote)player.emote.noMove=true;}
-  const keepMo=player.emote&&player.emote.def.fly&&!inp;const k=Math.min(1,dt*(player.air||keepMo?(inp?3.2:.6):(inp?11:16)));player.vx+=(tx-player.vx)*k;player.vz+=(tz-player.vz)*k;
+  const keepMo=player.emote&&player.emote.def.fly&&!inp;const k=Math.min(1,dt*(player.air||keepMo?(inp?3.2:(keepMo?.6:2.4)):(inp?11:16)));player.vx+=(tx-player.vx)*k;player.vz+=(tz-player.vz)*k;
   const sp2=Math.hypot(player.vx,player.vz);
   if(sp2<.06&&!player.air){player.vx=player.vz=0;if(!player.path.length)player.moving=false;return;}
   const blocked=moveP(player.vx*dt,player.vz*dt);
-  if(blocked&&inp&&sp2>.3){const L=Math.hypot(tx,tz)||1;if(ledgeTry(tx/L,tz/L))return;}
+  if(blocked&&inp&&(sp2>.3||player.air)){const L=Math.hypot(tx,tz)||1;if(ledgeTry(tx/L,tz/L))return;}
   player.moving=!player.air&&sp2>.35;player.kb=inp;player.phase+=dt*sp2*1.65;
   if(!player.air&&sp2>.5){player.stepT=(player.stepT||0)-dt*sp2/player.speed;if(player.stepT<=0){player.stepT=.36;if(AC&&settings.sfx)tone(70+Math.random()*30,.05,{type:'triangle',vol:.05});}}};
 function ledgeTry(dx,dz){if(player.pk||player.carry||INF.held||ride||player.task)return false;const h=player.h||0;const reach=player.air?2.75:(keys.shift?.72:0);if(reach<=0)return false;
@@ -7507,6 +7507,8 @@ drawLockHint=function(){};
   b.onclick=e=>{e.stopPropagation();try{if(document.fullscreenElement)document.exitFullscreen();else{const p=$('stage').requestFullscreen({navigationUI:'hide'});if(p&&p.then)p.then(()=>{PLK.last=0;setTimeout(()=>{try{tryLock();}catch(_){}},120);}).catch(()=>{});}}catch(_){}};
   document.addEventListener('fullscreenchange',()=>{b.textContent=(document.fullscreenElement?'⛶ '+T3('Zamknij pełny ekran','Exit full screen','Avslutt fullskjerm'):'⛶ '+T3('Pełny ekran','Full screen','Fullskjerm'));try{resize();}catch(_){}});}}
 function p28hTick(dt){try{edgeTurn(dt);}catch(_){}try{lockHintTick(dt);}catch(_){}}
+/* --- parkour: łoś – stoi się na grzbiecie (rogi i głowa nie podnoszą platformy), skok jest w zasięgu --- */
+try{for(let i=0;i<OU.plat.length;i++)if(OU.plat[i].t==='moose'&&!OU.boxes[i].fixed){const b=OU.boxes[i];b.yt-=.38;b.fixed=1;OU.plat[i].y=b.yt;}OU.top.y=OU.plat[OU.plat.length-1].y;}catch(e){console.warn('moose',e);}
 
 /* ================= v28 F: tik v28 ================= */
 function p28Tick(dt){try{p28aTick(dt);}catch(_){}try{p28cTick(dt);}catch(_){}try{p28dTick(dt);}catch(_){}try{p28eTick(dt);}catch(_){}try{p28hTick(dt);}catch(_){}}
