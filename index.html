@@ -7459,8 +7459,57 @@ function donutBite(e,M,tc){const d=M.donut;if(!d)return;const[AL,AR]=M.arms;cons
   if(e===player){const P=player.pact;if(P&&P.k==='donut')donutBite(e,M,P.t);return;}
   if(e.act==='donut'&&e.work>0&&M.donut){donutBite(e,M,state.time+e.x*1.37+e.y*.71);}}catch(_){}};}
 
+/* ================= v30: wybór języka w menu, mysz nie ucieka z gry (blokada kursora + obrót przy krawędzi) ================= */
+/* --- język: osobny panel w menu głównym --- */
+{const css=document.createElement('style');css.textContent=`
+#mmLang .pickl{display:block!important}
+#mmLang .lgRow{display:flex;gap:8px}
+#mmLang .lgRow button{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px 9px;border-radius:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:#efe9dc;font:600 16px "Barlow Condensed",sans-serif;cursor:pointer;transition:background .15s,border-color .15s,transform .1s}
+#mmLang .lgRow button:hover{background:rgba(242,194,48,.12);border-color:rgba(242,194,48,.5)}
+#mmLang .lgRow button[aria-pressed="true"]{background:rgba(242,194,48,.18);border-color:#f2c230;color:#fff}
+#mmLang .lgRow button:active{transform:translateY(1px)}
+#mmLang .fl{width:30px;height:20px;border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.35);display:block}
+#mmLang .fl.pl{background:linear-gradient(#f4f4f2 50%,#d4213d 50%)}
+#mmLang .fl.no{background:linear-gradient(90deg,transparent 30%,#00205b 30%,#00205b 40%,transparent 40%),linear-gradient(transparent 40%,#00205b 40%,#00205b 60%,transparent 60%),linear-gradient(90deg,transparent 26%,#fff 26%,#fff 44%,transparent 44%),linear-gradient(transparent 32%,#fff 32%,#fff 68%,transparent 68%),#ba0c2f}
+#mmLang .fl.en{background:linear-gradient(90deg,transparent 42%,#c8102e 42%,#c8102e 58%,transparent 58%),linear-gradient(transparent 38%,#c8102e 38%,#c8102e 62%,transparent 62%),linear-gradient(90deg,transparent 36%,#fff 36%,#fff 64%,transparent 64%),linear-gradient(transparent 30%,#fff 30%,#fff 70%,transparent 70%),#012169}
+#lockHint{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);z-index:4;pointer-events:none;background:rgba(10,12,16,.78);color:#f6f1e4;border:1px solid rgba(242,194,48,.45);border-radius:8px;padding:7px 14px;font:600 14px "Barlow Condensed",sans-serif;letter-spacing:.3px;opacity:0;transition:opacity .3s;max-width:88%;text-align:center}
+#lockHint.show{opacity:1}
+#fsBtn{position:absolute;right:10px;top:96px;z-index:3;background:rgba(16,17,19,.8);color:#f6f1e4;border:1px solid rgba(255,255,255,.18);border-radius:7px;font:600 13px "Barlow Condensed",sans-serif;padding:5px 9px;cursor:pointer}
+#fsBtn:hover{border-color:#f2c230}`;document.head.appendChild(css);}
+function langPanel(){const pc=$('mmPChar');if(!pc||$('mmLang'))return;const p=document.createElement('div');p.className='mmPanel';p.id='mmLang';
+  const L=[['pl','Polski'],['en','English'],['no','Norsk']];
+  p.innerHTML=`<div class="pickl">${T3('Język','Language','Språk')}</div><div class="lgRow">${L.map(([k,n])=>`<button type="button" data-l="${k}" aria-pressed="${k===LANG}"><span class="fl ${k}"></span>${n}</button>`).join('')}</div>`;
+  pc.parentNode.insertBefore(p,pc.nextSibling);
+  p.querySelectorAll('button').forEach(b=>b.onclick=()=>{if(b.dataset.l===LANG)return;if(AC&&settings.sfx)tone(520,.04,{type:'triangle',vol:.04});setLang(b.dataset.l);});}
+try{langPanel();}catch(e){console.warn('lang',e);}
+
+/* --- mysz: blokada kursora w grze; gdy przeglądarka/ramka jej nie pozwala – obrót kamery przy krawędzi ekranu --- */
+const PLK={x:-1,y:-1,inside:false,btn:false,err:0,last:0,hintT:0,said:false};
+function stageRect(){return cv.getBoundingClientRect();}
+document.addEventListener('mousemove',e=>{const r=stageRect();PLK.x=e.clientX-r.left;PLK.y=e.clientY-r.top;PLK.w=r.width;PLK.h=r.height;PLK.inside=PLK.x>=0&&PLK.y>=0&&PLK.x<=r.width&&PLK.y<=r.height;PLK.btn=!!(e.target&&e.target.closest&&e.target.closest('button,.pcov,.overlay,#emoPanel,#wcMenu,#vehHud'));},{passive:true});
+document.addEventListener('mouseleave',()=>{PLK.inside=false;});
+window.addEventListener('blur',()=>{PLK.inside=false;});
+document.addEventListener('pointerlockerror',()=>{PLK.err++;PLK.hintT=6;});
+function tryLock(){if(!canLock||locked()||!playing()||uiOpen()||ride&&false)return;const now=performance.now();if(now-PLK.last<900)return;PLK.last=now;lockPointer();}
+$('stage').addEventListener('pointerdown',e=>{if(e.button!==0)return;if(e.target&&e.target.closest&&e.target.closest('button,.pcov,.overlay,#emoPanel,#wcMenu'))return;tryLock();});
+document.addEventListener('keydown',e=>{const k=(e.key||'').toLowerCase();if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)&&!e.repeat&&PLK.err<2)tryLock();});
+function edgeTurn(dt){if(!playing()||locked()||uiOpen()||PCU.on||ADM.on||!PLK.inside||PLK.btn||!PLK.w)return 0;const band=Math.max(46,PLK.w*.075);let s=0;
+  if(PLK.x<band)s=(band-PLK.x)/band;else if(PLK.x>PLK.w-band)s=-(PLK.x-(PLK.w-band))/band;if(!s)return 0;s=Math.max(-1,Math.min(1,s));
+  const sp=s*Math.abs(s)*2.6+Math.sign(s)*.35;cam.tyaw+=sp*dt;if(cam.mode==='fpp')cam.yaw=cam.tyaw;return s;}
+function lockHintTick(dt){let el=$('lockHint');if(!el){el=document.createElement('div');el.id='lockHint';$('stage').appendChild(el);}
+  const show=playing()&&!locked()&&!uiOpen()&&!PCU.on&&!ADM.on;PLK.hintT=Math.max(0,PLK.hintT-dt);
+  if(show){const txt=PLK.err>=2?T3('Ta strona nie pozwala złapać myszy – kamera obraca się, gdy kursor jest przy lewej lub prawej krawędzi gry. Najwygodniej: przycisk ⛶ (pełny ekran).','This page won\'t let the game capture the mouse – the camera turns when the cursor is near the left or right edge. Easiest: the ⛶ button (full screen).','Denne siden lar ikke spillet fange musa – kameraet snur når pekeren er ved venstre eller høyre kant. Enklest: ⛶-knappen (fullskjerm).')
+      :T3('Kliknij w grę, żeby złapać mysz (ESC – pauza) · kursor przy krawędzi też obraca kamerę','Click the game to capture the mouse (ESC – pause) · the cursor at the edge also turns the camera','Klikk i spillet for å fange musa (ESC – pause) · pekeren ved kanten snur også kameraet');
+    if(el.textContent!==txt)el.textContent=txt;el.classList.add('show');}else el.classList.remove('show');}
+drawLockHint=function(){};
+/* pełny ekran: najpewniejszy sposób na pełne obracanie (kursor zostaje w grze) */
+{if(document.fullscreenEnabled&&$('stage').requestFullscreen){const b=document.createElement('button');b.id='fsBtn';b.type='button';b.title=T3('Pełny ekran','Full screen','Fullskjerm');b.textContent='⛶ '+T3('Pełny ekran','Full screen','Fullskjerm');$('stage').appendChild(b);
+  b.onclick=e=>{e.stopPropagation();try{if(document.fullscreenElement)document.exitFullscreen();else{const p=$('stage').requestFullscreen({navigationUI:'hide'});if(p&&p.then)p.then(()=>{PLK.last=0;setTimeout(()=>{try{tryLock();}catch(_){}},120);}).catch(()=>{});}}catch(_){}};
+  document.addEventListener('fullscreenchange',()=>{b.textContent=(document.fullscreenElement?'⛶ '+T3('Zamknij pełny ekran','Exit full screen','Avslutt fullskjerm'):'⛶ '+T3('Pełny ekran','Full screen','Fullskjerm'));try{resize();}catch(_){}});}}
+function p28hTick(dt){try{edgeTurn(dt);}catch(_){}try{lockHintTick(dt);}catch(_){}}
+
 /* ================= v28 F: tik v28 ================= */
-function p28Tick(dt){try{p28aTick(dt);}catch(_){}try{p28cTick(dt);}catch(_){}try{p28dTick(dt);}catch(_){}try{p28eTick(dt);}catch(_){}}
+function p28Tick(dt){try{p28aTick(dt);}catch(_){}try{p28cTick(dt);}catch(_){}try{p28dTick(dt);}catch(_){}try{p28eTick(dt);}catch(_){}try{p28hTick(dt);}catch(_){}}
 
 
 try{rebuildWorld();}catch(e){console.warn('rebuild',e);}
